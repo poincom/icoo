@@ -1,0 +1,173 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ICO Token Sale</title>
+    <script src="https://cdn.jsdelivr.net/npm/web3/dist/web3.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f9;
+            color: #333;
+        }
+        header {
+            background-color: #4CAF50;
+            color: white;
+            padding: 1em 0;
+            text-align: center;
+        }
+        .container {
+            padding: 20px;
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        .button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 16px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .button:hover {
+            background-color: #45a049;
+        }
+        input, select {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Welcome to the ICO Token Sale</h1>
+    </header>
+    <div class="container">
+        <h2>Buy Tokens</h2>
+        <p>Connect your wallet to purchase tokens.</p>
+        <button class="button" onclick="connectWallet()">Connect Wallet</button>
+        <p id="wallet-address"></p>
+        <h3>Purchase Tokens</h3>
+        <form id="purchase-form">
+            <label for="amount">Enter the amount of tokens:</label>
+            <input type="number" id="amount" placeholder="Enter token amount" required>
+            <label for="payment-token">Choose payment token:</label>
+            <select id="payment-token">
+                <option value="0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48">USDC</option>
+                <option value="0xdAC17F958D2ee523a2206206994597C13D831ec7">USDT</option>
+            </select>
+            <button type="button" class="button" onclick="buyTokens()">Buy Tokens</button>
+        </form>
+        <h3>Token Sale Info</h3>
+        <p>Total Tokens Sold: <span id="tokens-sold">0</span></p>
+        <p>Your Purchased Tokens: <span id="user-tokens">0</span></p>
+        <p id="status"></p>
+    </div>
+
+    <script>
+        const contractAddress = "0x7813e02FEf0f8E59916335FD307ff693Bb917f7B";
+        const abi = [
+            {"inputs":[{"internalType":"uint256","name":"amount","type":"uint256"},{"internalType":"address","name":"paymentToken","type":"address"}],
+            "name":"buyTokens","outputs":[],"stateMutability":"nonpayable","type":"function"},
+            {"inputs":[],"name":"tokensSold","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},
+            {"inputs":[{"internalType":"address","name":"","type":"address"}],"name":"userPurchases","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},
+            {"inputs":[],"name":"isActive","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"}
+        ];
+        const polygonMainnet = {
+            chainId: '0x89',
+            chainName: 'Polygon Mainnet',
+            rpcUrls: ['https://polygon-rpc.com/'],
+            nativeCurrency: {
+                name: 'MATIC',
+                symbol: 'MATIC',
+                decimals: 18
+            },
+            blockExplorerUrls: ['https://polygonscan.com/']
+        };
+
+        let web3;
+        let contract;
+        let userAccount;
+
+        async function connectWallet() {
+            if (window.ethereum) {
+                try {
+                    await window.ethereum.request({ method: "eth_requestAccounts" });
+                    web3 = new Web3(window.ethereum);
+                    const accounts = await web3.eth.getAccounts();
+                    userAccount = accounts[0];
+                    document.getElementById("wallet-address").innerText = "Connected wallet: " + userAccount;
+                    contract = new web3.eth.Contract(abi, contractAddress);
+
+                    // Switch to Polygon Mainnet
+                    const chainId = await web3.eth.getChainId();
+                    if (chainId !== parseInt(polygonMainnet.chainId, 16)) {
+                        await window.ethereum.request({
+                            method: 'wallet_addEthereumChain',
+                            params: [polygonMainnet]
+                        });
+                    }
+
+                    updateTokenInfo();
+                } catch (error) {
+                    console.error("Wallet connection failed", error);
+                    document.getElementById("status").innerText = "Failed to connect wallet.";
+                }
+            } else {
+                alert("MetaMask is not installed. Please install MetaMask and try again.");
+            }
+        }
+
+        async function updateTokenInfo() {
+            try {
+                const tokensSold = await contract.methods.tokensSold().call();
+                const userTokens = await contract.methods.userPurchases(userAccount).call();
+                document.getElementById("tokens-sold").innerText = tokensSold;
+                document.getElementById("user-tokens").innerText = userTokens;
+            } catch (error) {
+                console.error("Failed to fetch token info", error);
+            }
+        }
+
+        async function buyTokens() {
+            const amount = document.getElementById("amount").value;
+            const paymentToken = document.getElementById("payment-token").value;
+
+            if (!userAccount) {
+                alert("Please connect your wallet first.");
+                return;
+            }
+            if (!amount || amount <= 0) {
+                alert("Please enter a valid token amount.");
+                return;
+            }
+
+            try {
+                const gas = await contract.methods.buyTokens(amount, paymentToken).estimateGas({ from: userAccount });
+                const receipt = await contract.methods.buyTokens(amount, paymentToken)
+                    .send({ from: userAccount, gas });
+                console.log("Transaction successful", receipt);
+                document.getElementById("status").innerText = "Tokens purchased successfully!";
+                updateTokenInfo();
+            } catch (error) {
+                console.error("Transaction failed", error);
+                document.getElementById("status").innerText = "Token purchase failed. Check the gas limit or contract details.";
+            }
+        }
+    </script>
+</body>
+</html>
