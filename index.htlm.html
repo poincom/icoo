@@ -73,8 +73,8 @@
             <button type="button" class="button" onclick="buyTokens()">Buy Tokens</button>
         </form>
         <h3>Token Sale Info</h3>
-        <p>Total Tokens Sold: <span id="tokens-sold">0</span></p>
-        <p>Your Purchased Tokens: <span id="user-tokens">0</span></p>
+        <p>Total Tokens Sold: <span id="tokens-sold">Loading...</span></p>
+        <p>Your Purchased Tokens: <span id="user-tokens">Loading...</span></p>
         <p id="status"></p>
     </div>
 
@@ -140,6 +140,8 @@
                 document.getElementById("user-tokens").innerText = userTokens;
             } catch (error) {
                 console.error("Failed to fetch token info", error);
+                document.getElementById("tokens-sold").innerText = "Error";
+                document.getElementById("user-tokens").innerText = "Error";
             }
         }
 
@@ -165,7 +167,7 @@
                 updateTokenInfo();
             } catch (error) {
                 console.error("Transaction failed", error);
-                document.getElementById("status").innerText = "Token purchase failed. Check the gas limit or contract details.";
+                document.getElementById("status").innerText = `Token purchase failed: ${error.message}`;
             }
         }
     </script>
